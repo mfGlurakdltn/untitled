@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Plus, X, Trash2, Edit2, List as ListIcon, Image } from 'lucide-react';
+import { ArrowLeft, Plus, X, Trash2, Edit2 } from 'lucide-react';
 import TrackList from './TrackList';
 
 function PlaylistView({ 
@@ -12,7 +12,6 @@ function PlaylistView({
   onRemoveTrack,
   onDeletePlaylist,
   onRenamePlaylist,
-  onUpdatePlaylistCover,
   showCreateModal,
   setShowCreateModal,
   newPlaylistName,
@@ -40,14 +39,6 @@ function PlaylistView({
     setEditName('');
   };
 
-  const handleCoverUpload = async (playlistId, file) => {
-    if (file && file.type.startsWith('image/')) {
-      await onUpdatePlaylistCover(playlistId, file);
-    } else {
-      alert('Please select a valid image file');
-    }
-  };
-
   // Playlist Overview
   if (!selectedPlaylist) {
     return (
@@ -65,14 +56,14 @@ function PlaylistView({
             NEW PLAYLIST
           </button>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {playlists.length === 0 ? (
             <p className="text-white/50 col-span-full text-center py-8">No playlists yet</p>
           ) : (
             playlists.map(playlist => (
-              <div key={playlist.id} className="group">
+              <div key={playlist.id} className="border border-white/10 p-4 hover:bg-white/5 relative group">
                 {editingPlaylist === playlist.id ? (
-                  <div className="space-y-2 border border-white/10 p-4" onClick={(e) => e.stopPropagation()}>
+                  <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="text"
                       value={editName}
@@ -87,13 +78,13 @@ function PlaylistView({
                     <div className="flex gap-2">
                       <button
                         onClick={saveEdit}
-                        className="flex-1 px-2 py-1 bg-white/10 hover:bg-white/20 text-xs"
+                        className="flex-1 px-2 py-1 bg-white/10 hover:bg-white/20 text-xs rounded"
                       >
                         Save
                       </button>
                       <button
                         onClick={cancelEdit}
-                        className="flex-1 px-2 py-1 border border-white/10 hover:bg-white/5 text-xs"
+                        className="flex-1 px-2 py-1 border border-white/10 hover:bg-white/5 text-xs rounded"
                       >
                         Cancel
                       </button>
@@ -101,50 +92,20 @@ function PlaylistView({
                   </div>
                 ) : (
                   <>
-                    <div className="relative cursor-pointer" onClick={() => onPlaylistClick(playlist)}>
-                      <div className="aspect-square bg-white/5 mb-3 overflow-hidden flex items-center justify-center border border-white/10 relative group">
-                        {playlist.cover_url ? (
-                          <img 
-                            src={playlist.cover_url} 
-                            alt={playlist.name}
-                            className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
-                          />
-                        ) : (
-                          <ListIcon className="w-12 h-12 text-white/20" />
-                        )}
-                        <label 
-                          className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              if (e.target.files[0]) {
-                                handleCoverUpload(playlist.id, e.target.files[0]);
-                              }
-                            }}
-                          />
-                          <div className="flex flex-col items-center gap-1">
-                            <Image className="w-6 h-6" />
-                            <span className="text-xs">Upload Cover</span>
-                          </div>
-                        </label>
-                      </div>
-                      <div className="text-sm font-medium truncate">{playlist.name}</div>
-                      <div className="text-xs text-white/50">Playlist</div>
+                    <div onClick={() => onPlaylistClick(playlist)} className="cursor-pointer">
+                      <div className="text-sm font-medium">{playlist.name}</div>
+                      <div className="text-xs text-white/50 mt-1">{playlist.description || 'Playlist'}</div>
                     </div>
-                    <div className="flex gap-1 mt-2">
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex gap-1">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           startEditing(playlist);
                         }}
-                        className="flex-1 text-white/50 hover:text-white p-1 border border-white/10 hover:bg-white/5"
+                        className="text-white/50 hover:text-white p-1"
                         title="Rename playlist"
                       >
-                        <Edit2 className="w-3 h-3 mx-auto" />
+                        <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={(e) => {
@@ -153,10 +114,10 @@ function PlaylistView({
                             onDeletePlaylist(playlist.id);
                           }
                         }}
-                        className="flex-1 text-white/50 hover:text-red-500 p-1 border border-white/10 hover:bg-white/5"
+                        className="text-white/50 hover:text-red-500 p-1"
                         title="Delete playlist"
                       >
-                        <Trash2 className="w-3 h-3 mx-auto" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </>
@@ -219,41 +180,9 @@ function PlaylistView({
         <ArrowLeft className="w-4 h-4" />
         Back to Playlists
       </button>
-      <div className="flex gap-6 mb-8">
-        <div className="w-48 h-48 bg-white/5 flex-shrink-0 flex items-center justify-center border border-white/10 relative group">
-          {selectedPlaylist.cover_url ? (
-            <img 
-              src={selectedPlaylist.cover_url} 
-              alt={selectedPlaylist.name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <ListIcon className="w-20 h-20 text-white/20" />
-          )}
-          <label 
-            className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-          >
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files[0]) {
-                  handleCoverUpload(selectedPlaylist.id, e.target.files[0]);
-                }
-              }}
-            />
-            <div className="flex flex-col items-center gap-1">
-              <Image className="w-6 h-6" />
-              <span className="text-xs">Upload Cover</span>
-            </div>
-          </label>
-        </div>
-        <div className="flex flex-col justify-end">
-          <p className="text-xs text-white/50 mb-2">PLAYLIST</p>
-          <h1 className="text-4xl font-bold mb-4">{selectedPlaylist.name}</h1>
-          <p className="text-sm text-white/50">{playlistTracks.length} tracks</p>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-2xl mb-2">{selectedPlaylist.name}</h1>
+        <p className="text-white/50 text-sm">{playlistTracks.length} tracks</p>
       </div>
       <TrackList 
         tracks={playlistTracks.map(pt => pt.tracks)}

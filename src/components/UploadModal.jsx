@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, Image } from 'lucide-react';
 
 function UploadModal({ 
   show, 
@@ -20,9 +20,18 @@ function UploadModal({
     }
   };
 
+  const handleCoverSelect = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+      setUploadForm({ ...uploadForm, coverFile: file });
+    } else {
+      alert('Please select a valid image file');
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-      <div className="bg-black border border-white/20 w-full max-w-md p-6">
+      <div className="bg-black border border-white/20 w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl">UPLOAD TRACK</h2>
           <button onClick={onClose}>
@@ -42,6 +51,36 @@ function UploadModal({
             {uploadForm.audioFile && (
               <p className="text-xs text-white/50 mt-1">{uploadForm.audioFile.name}</p>
             )}
+          </div>
+
+          <div>
+            <label className="block text-xs text-white/50 mb-2">ALBUM COVER</label>
+            <div className="border border-white/10 border-dashed p-4 text-center hover:bg-white/5 cursor-pointer">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleCoverSelect}
+                className="hidden"
+                id="cover-upload"
+              />
+              <label htmlFor="cover-upload" className="cursor-pointer">
+                {uploadForm.coverFile ? (
+                  <div className="space-y-2">
+                    <img 
+                      src={URL.createObjectURL(uploadForm.coverFile)} 
+                      alt="Cover preview" 
+                      className="w-32 h-32 object-cover mx-auto"
+                    />
+                    <p className="text-xs text-white/50">{uploadForm.coverFile.name}</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Image className="w-8 h-8 text-white/30" />
+                    <p className="text-xs text-white/50">Click to upload cover image</p>
+                  </div>
+                )}
+              </label>
+            </div>
           </div>
 
           <div>

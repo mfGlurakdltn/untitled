@@ -33,6 +33,7 @@ function App() {
 
   const [uploadForm, setUploadForm] = useState({
     audioFile: null,
+    coverFile: null,
     title: '',
     artistName: '',
     albumTitle: '',
@@ -89,12 +90,51 @@ function App() {
   };
 
   const addTrackToPlaylist = async (playlistId, trackId) => {
-    const playlistTracks = await loadPlaylistTracks(playlistId);
-    const position = playlistTracks.length;
-    const { error } = await supabase
-      .from('playlist_tracks')
-      .insert([{ playlist_id: playlistId, track_id: trackId, position }]);
-    if (!error) alert('Track added to playlist!');
+    try {
+      // Check if track is already in playlist
+      const { data: existing } = await supabase
+        .from('playlist_tracks')
+        .select('id')
+        .eq('playlist_id', playlistId)
+        .eq('track_id', trackId)
+        .single();
+
+      if (existing) {
+        alert('Track is already in this playlist');
+        return;
+      }
+
+      const playlistTracks = await loadPlaylistTracks(playlistId);
+      const position = playlistTracks.length;
+      const { error } = await supabase
+        .from('playlist_tracks')
+        .insert([{ playlist_id: playlistId, track_id: trackId, position }]);
+      
+      if (error) {
+        console.error('Error adding track:', error);
+        alert('Error adding track to playlist');
+      } else {
+        alert('Track added to playlist!');
+      }
+    } catch (error) {
+      // Duplicate check returns error if not found - that's ok
+      if (error.code !== 'PGRST116') {
+        console.error('Error:', error);
+      }
+      
+      const playlistTracks = await loadPlaylistTracks(playlistId);
+      const position = playlistTracks.length;
+      const { error: insertError } = await supabase
+        .from('playlist_tracks')
+        .insert([{ playlist_id: playlistId, track_id: trackId, position }]);
+      
+      if (insertError) {
+        console.error('Error adding track:', insertError);
+        alert('Error adding track to playlist');
+      } else {
+        alert('Track added to playlist!');
+      }
+    }
   };
 
   const handleUpload = async () => {
@@ -104,22 +144,41 @@ function App() {
     }
     setUploading(true);
     try {
+      // Upload cover if provided
+      let coverUrl = null;
+      if (uploadForm.coverFile) {
+        const coverExt = uploadForm.coverFile.name.split('.').pop();
+        const coverFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${coverExt}`;
+        const { error: coverUploadError } = await supabase.storage.from('covers').upload(coverFileName, uploadForm.coverFile);
+        if (coverUploadError) throw coverUploadError;
+        const { data: coverUrlData } = supabase.storage.from('covers').getPublicUrl(coverFileName);
+        coverUrl = coverUrlData.publicUrl;
+      }
+
       let artistId;
-      const { data: existingArtist } = await supabase.from('artists').select('id').eq('name', uploadForm.artistName).single();
+      const { data: existingArtist } = await supabase.from('artists').select('id, cover_url').eq('name', uploadForm.artistName).single();
       if (existingArtist) {
         artistId = existingArtist.id;
+        // Update artist cover if new cover provided and artist has no cover
+        if (coverUrl && !existingArtist.cover_url) {
+          await supabase.from('artists').update({ cover_url: coverUrl }).eq('id', artistId);
+        }
       } else {
-        const { data: newArtist, error } = await supabase.from('artists').insert([{ name: uploadForm.artistName }]).select().single();
+        const { data: newArtist, error } = await supabase.from('artists').insert([{ name: uploadForm.artistName, cover_url: coverUrl }]).select().single();
         if (error) throw error;
         artistId = newArtist.id;
       }
 
       let albumId;
-      const { data: existingAlbum } = await supabase.from('albums').select('id').eq('title', uploadForm.albumTitle).eq('artist_id', artistId).single();
+      const { data: existingAlbum } = await supabase.from('albums').select('id, cover_url').eq('title', uploadForm.albumTitle).eq('artist_id', artistId).single();
       if (existingAlbum) {
         albumId = existingAlbum.id;
+        // Update album cover if new cover provided and album has no cover
+        if (coverUrl && !existingAlbum.cover_url) {
+          await supabase.from('albums').update({ cover_url: coverUrl }).eq('id', albumId);
+        }
       } else {
-        const { data: newAlbum, error } = await supabase.from('albums').insert([{ title: uploadForm.albumTitle, artist_id: artistId, release_year: uploadForm.releaseYear }]).select().single();
+        const { data: newAlbum, error } = await supabase.from('albums').insert([{ title: uploadForm.albumTitle, artist_id: artistId, release_year: uploadForm.releaseYear, cover_url: coverUrl }]).select().single();
         if (error) throw error;
         albumId = newAlbum.id;
       }
@@ -141,7 +200,7 @@ function App() {
         }]);
         alert('Track uploaded successfully!');
         setShowUploadModal(false);
-        setUploadForm({ audioFile: null, title: '', artistName: '', albumTitle: '', trackNumber: 1, releaseYear: new Date().getFullYear() });
+        setUploadForm({ audioFile: null, coverFile: null, title: '', artistName: '', albumTitle: '', trackNumber: 1, releaseYear: new Date().getFullYear() });
         loadData();
         setUploading(false);
       };
@@ -173,10 +232,31 @@ function App() {
     loadPlaylists();
     alert('Playlist deleted!');
   };
+  
   const renamePlaylist = async (playlistId, newName) => {
     await supabase.from('playlists').update({ name: newName }).eq('id', playlistId);
     loadPlaylists();
     alert('Playlist renamed!');
+  };
+
+  const updatePlaylistCover = async (playlistId, coverFile) => {
+    try {
+      const coverExt = coverFile.name.split('.').pop();
+      const coverFileName = `playlist_${playlistId}_${Date.now()}.${coverExt}`;
+      const { error: uploadError } = await supabase.storage.from('covers').upload(coverFileName, coverFile);
+      if (uploadError) throw uploadError;
+      
+      const { data: coverUrlData } = supabase.storage.from('covers').getPublicUrl(coverFileName);
+      await supabase.from('playlists').update({ cover_url: coverUrlData.publicUrl }).eq('id', playlistId);
+      
+      loadPlaylists();
+      if (selectedPlaylist && selectedPlaylist.id === playlistId) {
+        setSelectedPlaylist({ ...selectedPlaylist, cover_url: coverUrlData.publicUrl });
+      }
+      alert('Cover updated!');
+    } catch (error) {
+      alert('Error updating cover: ' + error.message);
+    }
   };
 
   const playTrack = (track) => {
@@ -370,6 +450,7 @@ function App() {
               onRemoveTrack={removeTrackFromPlaylist}
               onDeletePlaylist={deletePlaylist}
               onRenamePlaylist={renamePlaylist}
+              onUpdatePlaylistCover={updatePlaylistCover}
               showCreateModal={showPlaylistModal}
               setShowCreateModal={setShowPlaylistModal}
               newPlaylistName={newPlaylistName}
