@@ -9,7 +9,9 @@ function ArtistView({
   onBack,
   filteredTracks,
   currentTrack,
-  onTrackClick
+  onTrackClick,
+  onAddToPlaylist,
+  playlists
 }) {
   // Artist Overview
   if (!selectedArtist) {
@@ -53,10 +55,12 @@ function ArtistView({
         <p className="text-white/50 text-sm">{filteredTracks.length} tracks</p>
       </div>
       <TrackList 
-        tracks={filteredTracks}
-        currentTrack={currentTrack}
-        onTrackClick={onTrackClick}
-      />
+  tracks={filteredTracks}
+  currentTrack={currentTrack}
+  onTrackClick={onTrackClick}
+  onAddToPlaylist={onAddToPlaylist}
+  playlists={playlists}
+/>
     </>
   );
 }

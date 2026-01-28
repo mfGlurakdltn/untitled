@@ -88,6 +88,15 @@ function App() {
     return data || [];
   };
 
+  const addTrackToPlaylist = async (playlistId, trackId) => {
+    const playlistTracks = await loadPlaylistTracks(playlistId);
+    const position = playlistTracks.length;
+    const { error } = await supabase
+      .from('playlist_tracks')
+      .insert([{ playlist_id: playlistId, track_id: trackId, position }]);
+    if (!error) alert('Track added to playlist!');
+  };
+
   const handleUpload = async () => {
     if (!uploadForm.audioFile || !uploadForm.title || !uploadForm.artistName || !uploadForm.albumTitle) {
       alert('Please fill all required fields');
@@ -157,6 +166,17 @@ function App() {
       const updated = await loadPlaylistTracks(selectedPlaylist.id);
       setSelectedPlaylist({ ...selectedPlaylist, tracks: updated });
     }
+  };
+
+  const deletePlaylist = async (playlistId) => {
+    await supabase.from('playlists').delete().eq('id', playlistId);
+    loadPlaylists();
+    alert('Playlist deleted!');
+  };
+  const renamePlaylist = async (playlistId, newName) => {
+    await supabase.from('playlists').update({ name: newName }).eq('id', playlistId);
+    loadPlaylists();
+    alert('Playlist renamed!');
   };
 
   const playTrack = (track) => {
@@ -292,7 +312,13 @@ function App() {
                     <h1 className="text-2xl mb-2">ALL TRACKS</h1>
                     <p className="text-white/50 text-sm">{filteredTracks.length} tracks</p>
                   </div>
-                  <TrackList tracks={filteredTracks} currentTrack={currentTrack} onTrackClick={playTrack} />
+                  <TrackList 
+                    tracks={filteredTracks} 
+                    currentTrack={currentTrack} 
+                    onTrackClick={playTrack}
+                    onAddToPlaylist={addTrackToPlaylist}
+                    playlists={playlists}
+                  />
                 </>
               )}
 
@@ -305,6 +331,8 @@ function App() {
                   filteredTracks={filteredTracks}
                   currentTrack={currentTrack}
                   onTrackClick={playTrack}
+                  onAddToPlaylist={addTrackToPlaylist}
+                  playlists={playlists}
                 />
               )}
 
@@ -317,24 +345,28 @@ function App() {
                   filteredTracks={filteredTracks}
                   currentTrack={currentTrack}
                   onTrackClick={playTrack}
+                  onAddToPlaylist={addTrackToPlaylist}
+                  playlists={playlists}
                 />
               )}
 
               {(currentView === 'playlists' || currentView === 'playlist-detail') && (
-                <PlaylistView
-                  playlists={playlists}
-                  selectedPlaylist={selectedPlaylist}
-                  onPlaylistClick={handlePlaylistClick}
-                  onBack={() => setCurrentView('playlists')}
-                  currentTrack={currentTrack}
-                  onTrackClick={playTrack}
-                  onRemoveTrack={removeTrackFromPlaylist}
-                  showCreateModal={showPlaylistModal}
-                  setShowCreateModal={setShowPlaylistModal}
-                  newPlaylistName={newPlaylistName}
-                  setNewPlaylistName={setNewPlaylistName}
-                  onCreatePlaylist={createPlaylist}
-                />
+              <PlaylistView
+              playlists={playlists}
+              selectedPlaylist={selectedPlaylist}
+              onPlaylistClick={handlePlaylistClick}
+              onBack={() => setCurrentView('playlists')}
+              currentTrack={currentTrack}
+              onTrackClick={playTrack}
+              onRemoveTrack={removeTrackFromPlaylist}
+              onDeletePlaylist={deletePlaylist}
+              onRenamePlaylist={renamePlaylist}
+              showCreateModal={showPlaylistModal}
+              setShowCreateModal={setShowPlaylistModal}
+              newPlaylistName={newPlaylistName}
+              setNewPlaylistName={setNewPlaylistName}
+              onCreatePlaylist={createPlaylist}
+            />
               )}
             </>
           )}

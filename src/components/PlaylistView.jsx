@@ -1,5 +1,5 @@
-import React from 'react';
-import { ArrowLeft, Plus, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, Plus, X, Trash2, Edit2 } from 'lucide-react';
 import TrackList from './TrackList';
 
 function PlaylistView({ 
@@ -10,12 +10,35 @@ function PlaylistView({
   currentTrack,
   onTrackClick,
   onRemoveTrack,
+  onDeletePlaylist,
+  onRenamePlaylist,
   showCreateModal,
   setShowCreateModal,
   newPlaylistName,
   setNewPlaylistName,
   onCreatePlaylist
 }) {
+  const [editingPlaylist, setEditingPlaylist] = useState(null);
+  const [editName, setEditName] = useState('');
+
+  const startEditing = (playlist) => {
+    setEditingPlaylist(playlist.id);
+    setEditName(playlist.name);
+  };
+
+  const saveEdit = () => {
+    if (editName.trim()) {
+      onRenamePlaylist(editingPlaylist, editName.trim());
+      setEditingPlaylist(null);
+      setEditName('');
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingPlaylist(null);
+    setEditName('');
+  };
+
   // Playlist Overview
   if (!selectedPlaylist) {
     return (
@@ -38,13 +61,67 @@ function PlaylistView({
             <p className="text-white/50 col-span-full text-center py-8">No playlists yet</p>
           ) : (
             playlists.map(playlist => (
-              <div 
-                key={playlist.id} 
-                onClick={() => onPlaylistClick(playlist)}
-                className="border border-white/10 p-4 hover:bg-white/5 cursor-pointer"
-              >
-                <div className="text-sm font-medium">{playlist.name}</div>
-                <div className="text-xs text-white/50 mt-1">{playlist.description || 'Playlist'}</div>
+              <div key={playlist.id} className="border border-white/10 p-4 hover:bg-white/5 relative group">
+                {editingPlaylist === playlist.id ? (
+                  <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveEdit();
+                        if (e.key === 'Escape') cancelEdit();
+                      }}
+                      className="w-full bg-white/5 border border-white/10 px-2 py-1 text-sm focus:outline-none focus:border-white/30"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={saveEdit}
+                        className="flex-1 px-2 py-1 bg-white/10 hover:bg-white/20 text-xs rounded"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        className="flex-1 px-2 py-1 border border-white/10 hover:bg-white/5 text-xs rounded"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div onClick={() => onPlaylistClick(playlist)} className="cursor-pointer">
+                      <div className="text-sm font-medium">{playlist.name}</div>
+                      <div className="text-xs text-white/50 mt-1">{playlist.description || 'Playlist'}</div>
+                    </div>
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditing(playlist);
+                        }}
+                        className="text-white/50 hover:text-white p-1"
+                        title="Rename playlist"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Delete playlist "${playlist.name}"?`)) {
+                            onDeletePlaylist(playlist.id);
+                          }
+                        }}
+                        className="text-white/50 hover:text-red-500 p-1"
+                        title="Delete playlist"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ))
           )}
@@ -67,8 +144,14 @@ function PlaylistView({
                     type="text"
                     value={newPlaylistName}
                     onChange={(e) => setNewPlaylistName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newPlaylistName.trim()) {
+                        onCreatePlaylist();
+                      }
+                    }}
                     className="w-full bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:border-white/30"
                     placeholder="My Playlist"
+                    autoFocus
                   />
                 </div>
                 <button
