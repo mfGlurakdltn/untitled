@@ -149,9 +149,9 @@ function App() {
       if (uploadForm.coverFile) {
         const coverExt = uploadForm.coverFile.name.split('.').pop();
         const coverFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${coverExt}`;
-        const { error: coverUploadError } = await supabase.storage.from('covers').upload(coverFileName, uploadForm.coverFile);
+        const { error: coverUploadError } = await supabase.storage.from('cover').upload(coverFileName, uploadForm.coverFile);
         if (coverUploadError) throw coverUploadError;
-        const { data: coverUrlData } = supabase.storage.from('covers').getPublicUrl(coverFileName);
+        const { data: coverUrlData } = supabase.storage.from('cover').getPublicUrl(coverFileName);
         coverUrl = coverUrlData.publicUrl;
       }
 
@@ -243,10 +243,10 @@ function App() {
     try {
       const coverExt = coverFile.name.split('.').pop();
       const coverFileName = `playlist_${playlistId}_${Date.now()}.${coverExt}`;
-      const { error: uploadError } = await supabase.storage.from('covers').upload(coverFileName, coverFile);
+      const { error: uploadError } = await supabase.storage.from('cover').upload(coverFileName, coverFile);
       if (uploadError) throw uploadError;
       
-      const { data: coverUrlData } = supabase.storage.from('covers').getPublicUrl(coverFileName);
+      const { data: coverUrlData } = supabase.storage.from('cover').getPublicUrl(coverFileName);
       await supabase.from('playlists').update({ cover_url: coverUrlData.publicUrl }).eq('id', playlistId);
       
       loadPlaylists();
