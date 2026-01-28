@@ -327,7 +327,10 @@ function App() {
                   artists={artists}
                   selectedArtist={selectedArtist}
                   onArtistClick={handleArtistClick}
-                  onBack={() => setCurrentView('artists')}
+                  onBack={() => {
+                    setSelectedArtist(null);
+                    setCurrentView('artists');
+                  }}
                   filteredTracks={filteredTracks}
                   currentTrack={currentTrack}
                   onTrackClick={playTrack}
@@ -341,7 +344,10 @@ function App() {
                   albums={albums}
                   selectedAlbum={selectedAlbum}
                   onAlbumClick={handleAlbumClick}
-                  onBack={() => setCurrentView('albums')}
+                  onBack={() => {
+                    setSelectedAlbum(null);
+                    setCurrentView('albums');
+                  }}
                   filteredTracks={filteredTracks}
                   currentTrack={currentTrack}
                   onTrackClick={playTrack}
@@ -355,7 +361,10 @@ function App() {
               playlists={playlists}
               selectedPlaylist={selectedPlaylist}
               onPlaylistClick={handlePlaylistClick}
-              onBack={() => setCurrentView('playlists')}
+              onBack={() => {
+                setSelectedPlaylist(null);
+                setCurrentView('playlists');
+              }}
               currentTrack={currentTrack}
               onTrackClick={playTrack}
               onRemoveTrack={removeTrackFromPlaylist}
