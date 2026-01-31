@@ -175,6 +175,7 @@ function App() {
     loadPlaylists();
     alert('Playlist deleted!');
   };
+
   const renamePlaylist = async (playlistId, newName) => {
     await supabase.from('playlists').update({ name: newName }).eq('id', playlistId);
     loadPlaylists();
