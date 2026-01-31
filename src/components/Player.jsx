@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2 } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
 
 function Player({ 
   currentTrack, 
@@ -7,12 +7,14 @@ function Player({
   currentTime, 
   duration, 
   volume,
+  isMuted,
   audioRef,
   onPlayPause,
   onSkipForward,
   onSkipBackward,
   onSeek,
-  onVolumeChange
+  onVolumeChange,
+  onMuteToggle
 }) {
   const formatTime = (seconds) => {
     if (!seconds || isNaN(seconds)) return '0:00';
@@ -88,16 +90,18 @@ function Player({
 
         {/* Volume */}
         <div className="w-48 flex items-center gap-3">
-          <Volume2 className="w-4 h-4" />
+          <button onClick={onMuteToggle} className="hover:text-white/70">
+            {isMuted || volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          </button>
           <input
             type="range"
             min="0"
             max="100"
-            value={volume * 100}
+            value={isMuted ? 0 : volume * 100}
             onChange={onVolumeChange}
             className="flex-1 h-1 bg-white/10 appearance-none cursor-pointer"
             style={{
-              background: `linear-gradient(to right, white ${volume * 100}%, rgba(255,255,255,0.1) ${volume * 100}%)`
+              background: `linear-gradient(to right, white ${isMuted ? 0 : volume * 100}%, rgba(255,255,255,0.1) ${isMuted ? 0 : volume * 100}%)`
             }}
           />
         </div>

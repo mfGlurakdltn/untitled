@@ -19,6 +19,8 @@ function App() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.7);
+  const [isMuted, setIsMuted] = useState(false);
+  const [previousVolume, setPreviousVolume] = useState(0.7);
   const [searchQuery, setSearchQuery] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
@@ -33,7 +35,6 @@ function App() {
 
   const [uploadForm, setUploadForm] = useState({
     audioFile: null,
-    coverFile: null,
     title: '',
     artistName: '',
     albumTitle: '',
@@ -90,51 +91,12 @@ function App() {
   };
 
   const addTrackToPlaylist = async (playlistId, trackId) => {
-    try {
-      // Check if track is already in playlist
-      const { data: existing } = await supabase
-        .from('playlist_tracks')
-        .select('id')
-        .eq('playlist_id', playlistId)
-        .eq('track_id', trackId)
-        .single();
-
-      if (existing) {
-        alert('Track is already in this playlist');
-        return;
-      }
-
-      const playlistTracks = await loadPlaylistTracks(playlistId);
-      const position = playlistTracks.length;
-      const { error } = await supabase
-        .from('playlist_tracks')
-        .insert([{ playlist_id: playlistId, track_id: trackId, position }]);
-      
-      if (error) {
-        console.error('Error adding track:', error);
-        alert('Error adding track to playlist');
-      } else {
-        alert('Track added to playlist!');
-      }
-    } catch (error) {
-      // Duplicate check returns error if not found - that's ok
-      if (error.code !== 'PGRST116') {
-        console.error('Error:', error);
-      }
-      
-      const playlistTracks = await loadPlaylistTracks(playlistId);
-      const position = playlistTracks.length;
-      const { error: insertError } = await supabase
-        .from('playlist_tracks')
-        .insert([{ playlist_id: playlistId, track_id: trackId, position }]);
-      
-      if (insertError) {
-        console.error('Error adding track:', insertError);
-        alert('Error adding track to playlist');
-      } else {
-        alert('Track added to playlist!');
-      }
-    }
+    const playlistTracks = await loadPlaylistTracks(playlistId);
+    const position = playlistTracks.length;
+    const { error } = await supabase
+      .from('playlist_tracks')
+      .insert([{ playlist_id: playlistId, track_id: trackId, position }]);
+    if (!error) alert('Track added to playlist!');
   };
 
   const handleUpload = async () => {
@@ -144,41 +106,22 @@ function App() {
     }
     setUploading(true);
     try {
-      // Upload cover if provided
-      let coverUrl = null;
-      if (uploadForm.coverFile) {
-        const coverExt = uploadForm.coverFile.name.split('.').pop();
-        const coverFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${coverExt}`;
-        const { error: coverUploadError } = await supabase.storage.from('cover').upload(coverFileName, uploadForm.coverFile);
-        if (coverUploadError) throw coverUploadError;
-        const { data: coverUrlData } = supabase.storage.from('cover').getPublicUrl(coverFileName);
-        coverUrl = coverUrlData.publicUrl;
-      }
-
       let artistId;
-      const { data: existingArtist } = await supabase.from('artists').select('id, cover_url').eq('name', uploadForm.artistName).single();
+      const { data: existingArtist } = await supabase.from('artists').select('id').eq('name', uploadForm.artistName).single();
       if (existingArtist) {
         artistId = existingArtist.id;
-        // Update artist cover if new cover provided and artist has no cover
-        if (coverUrl && !existingArtist.cover_url) {
-          await supabase.from('artists').update({ cover_url: coverUrl }).eq('id', artistId);
-        }
       } else {
-        const { data: newArtist, error } = await supabase.from('artists').insert([{ name: uploadForm.artistName, cover_url: coverUrl }]).select().single();
+        const { data: newArtist, error } = await supabase.from('artists').insert([{ name: uploadForm.artistName }]).select().single();
         if (error) throw error;
         artistId = newArtist.id;
       }
 
       let albumId;
-      const { data: existingAlbum } = await supabase.from('albums').select('id, cover_url').eq('title', uploadForm.albumTitle).eq('artist_id', artistId).single();
+      const { data: existingAlbum } = await supabase.from('albums').select('id').eq('title', uploadForm.albumTitle).eq('artist_id', artistId).single();
       if (existingAlbum) {
         albumId = existingAlbum.id;
-        // Update album cover if new cover provided and album has no cover
-        if (coverUrl && !existingAlbum.cover_url) {
-          await supabase.from('albums').update({ cover_url: coverUrl }).eq('id', albumId);
-        }
       } else {
-        const { data: newAlbum, error } = await supabase.from('albums').insert([{ title: uploadForm.albumTitle, artist_id: artistId, release_year: uploadForm.releaseYear, cover_url: coverUrl }]).select().single();
+        const { data: newAlbum, error } = await supabase.from('albums').insert([{ title: uploadForm.albumTitle, artist_id: artistId, release_year: uploadForm.releaseYear }]).select().single();
         if (error) throw error;
         albumId = newAlbum.id;
       }
@@ -200,7 +143,7 @@ function App() {
         }]);
         alert('Track uploaded successfully!');
         setShowUploadModal(false);
-        setUploadForm({ audioFile: null, coverFile: null, title: '', artistName: '', albumTitle: '', trackNumber: 1, releaseYear: new Date().getFullYear() });
+        setUploadForm({ audioFile: null, title: '', artistName: '', albumTitle: '', trackNumber: 1, releaseYear: new Date().getFullYear() });
         loadData();
         setUploading(false);
       };
@@ -232,30 +175,63 @@ function App() {
     loadPlaylists();
     alert('Playlist deleted!');
   };
-  
   const renamePlaylist = async (playlistId, newName) => {
     await supabase.from('playlists').update({ name: newName }).eq('id', playlistId);
     loadPlaylists();
     alert('Playlist renamed!');
   };
 
-  const updatePlaylistCover = async (playlistId, coverFile) => {
+  const toggleMute = () => {
+    if (isMuted) {
+      setIsMuted(false);
+      setVolume(previousVolume);
+      if (audioRef.current) audioRef.current.volume = previousVolume;
+    } else {
+      setPreviousVolume(volume);
+      setIsMuted(true);
+      if (audioRef.current) audioRef.current.volume = 0;
+    }
+  };
+
+  const updateArtistCover = async (artistId, file) => {
     try {
-      const coverExt = coverFile.name.split('.').pop();
-      const coverFileName = `playlist_${playlistId}_${Date.now()}.${coverExt}`;
-      const { error: uploadError } = await supabase.storage.from('cover').upload(coverFileName, coverFile);
-      if (uploadError) throw uploadError;
-      
-      const { data: coverUrlData } = supabase.storage.from('cover').getPublicUrl(coverFileName);
-      await supabase.from('playlists').update({ cover_url: coverUrlData.publicUrl }).eq('id', playlistId);
-      
-      loadPlaylists();
-      if (selectedPlaylist && selectedPlaylist.id === playlistId) {
-        setSelectedPlaylist({ ...selectedPlaylist, cover_url: coverUrlData.publicUrl });
-      }
-      alert('Cover updated!');
+      const ext = file.name.split('.').pop();
+      const fileName = `artist_${artistId}_${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('cover').upload(fileName, file);
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from('cover').getPublicUrl(fileName);
+      await supabase.from('artists').update({ cover_url: urlData.publicUrl }).eq('id', artistId);
+      loadArtists();
     } catch (error) {
-      alert('Error updating cover: ' + error.message);
+      alert('Error: ' + error.message);
+    }
+  };
+
+  const updateAlbumCover = async (albumId, file) => {
+    try {
+      const ext = file.name.split('.').pop();
+      const fileName = `album_${albumId}_${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('cover').upload(fileName, file);
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from('cover').getPublicUrl(fileName);
+      await supabase.from('albums').update({ cover_url: urlData.publicUrl }).eq('id', albumId);
+      loadAlbums();
+    } catch (error) {
+      alert('Error: ' + error.message);
+    }
+  };
+
+  const updatePlaylistCover = async (playlistId, file) => {
+    try {
+      const ext = file.name.split('.').pop();
+      const fileName = `playlist_${playlistId}_${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('cover').upload(fileName, file);
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from('cover').getPublicUrl(fileName);
+      await supabase.from('playlists').update({ cover_url: urlData.publicUrl }).eq('id', playlistId);
+      loadPlaylists();
+    } catch (error) {
+      alert('Error: ' + error.message);
     }
   };
 
@@ -407,15 +383,13 @@ function App() {
                   artists={artists}
                   selectedArtist={selectedArtist}
                   onArtistClick={handleArtistClick}
-                  onBack={() => {
-                    setSelectedArtist(null);
-                    setCurrentView('artists');
-                  }}
+                  onBack={() => setCurrentView('artists')}
                   filteredTracks={filteredTracks}
                   currentTrack={currentTrack}
                   onTrackClick={playTrack}
                   onAddToPlaylist={addTrackToPlaylist}
                   playlists={playlists}
+                  onUpdateArtistCover={updateArtistCover}
                 />
               )}
 
@@ -424,15 +398,13 @@ function App() {
                   albums={albums}
                   selectedAlbum={selectedAlbum}
                   onAlbumClick={handleAlbumClick}
-                  onBack={() => {
-                    setSelectedAlbum(null);
-                    setCurrentView('albums');
-                  }}
+                  onBack={() => setCurrentView('albums')}
                   filteredTracks={filteredTracks}
                   currentTrack={currentTrack}
                   onTrackClick={playTrack}
                   onAddToPlaylist={addTrackToPlaylist}
                   playlists={playlists}
+                  onUpdateAlbumCover={updateAlbumCover}
                 />
               )}
 
@@ -441,21 +413,18 @@ function App() {
               playlists={playlists}
               selectedPlaylist={selectedPlaylist}
               onPlaylistClick={handlePlaylistClick}
-              onBack={() => {
-                setSelectedPlaylist(null);
-                setCurrentView('playlists');
-              }}
+              onBack={() => setCurrentView('playlists')}
               currentTrack={currentTrack}
               onTrackClick={playTrack}
               onRemoveTrack={removeTrackFromPlaylist}
               onDeletePlaylist={deletePlaylist}
               onRenamePlaylist={renamePlaylist}
-              onUpdatePlaylistCover={updatePlaylistCover}
               showCreateModal={showPlaylistModal}
               setShowCreateModal={setShowPlaylistModal}
               newPlaylistName={newPlaylistName}
               setNewPlaylistName={setNewPlaylistName}
               onCreatePlaylist={createPlaylist}
+              onUpdatePlaylistCover={updatePlaylistCover}
             />
               )}
             </>
@@ -469,12 +438,14 @@ function App() {
         currentTime={currentTime}
         duration={duration}
         volume={volume}
+        isMuted={isMuted}
         audioRef={audioRef}
         onPlayPause={togglePlayPause}
         onSkipForward={skipForward}
         onSkipBackward={skipBackward}
         onSeek={(e) => { const t = (e.target.value / 100) * duration; if (audioRef.current) { audioRef.current.currentTime = t; }}}
-        onVolumeChange={(e) => { const v = e.target.value / 100; setVolume(v); if (audioRef.current) audioRef.current.volume = v; }}
+        onVolumeChange={(e) => { const v = e.target.value / 100; setVolume(v); setIsMuted(v === 0); if (v > 0) setPreviousVolume(v); if (audioRef.current) audioRef.current.volume = v; }}
+        onMuteToggle={toggleMute}
       />
 
       <UploadModal
