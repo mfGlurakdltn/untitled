@@ -6,19 +6,20 @@ const WORKER_URL = import.meta.env.VITE_WORKER_URL;
 
 async function saveTrackToDB({ title, artist, album, year, thumbnail, trackNumber }, { audioUrl, duration }) {
   // Find or create artist
+  const artistName = artist || 'Unknown';
   let artistId;
-  const { data: existingArtist } = await supabase.from('artists').select('id').eq('name', artist).maybeSingle();
+  const { data: existingArtist } = await supabase.from('artists').select('id').eq('name', artistName).maybeSingle();
   if (existingArtist) {
     artistId = existingArtist.id;
   } else {
-    const { data: newArtist, error } = await supabase.from('artists').insert([{ name: artist }]).select().single();
+    const { data: newArtist, error } = await supabase.from('artists').insert([{ name: artistName }]).select().single();
     if (error) throw error;
     artistId = newArtist.id;
   }
 
   // Find or create album
   let albumId;
-  const albumTitle = album || `${artist} - Singles`;
+  const albumTitle = album || `${artistName} - Singles`;
   const { data: existingAlbum } = await supabase.from('albums').select('id').eq('title', albumTitle).eq('artist_id', artistId).maybeSingle();
   if (existingAlbum) {
     albumId = existingAlbum.id;
