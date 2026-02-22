@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Upload, Home, Music, Disc, List } from 'lucide-react';
+import { Search, Upload, Home, Music, Disc, List, Link } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import TrackList from './components/TrackList';
 import Player from './components/Player';
 import UploadModal from './components/UploadModal';
+import DownloadModal from './components/DownloadModal';
 import ArtistView from './components/ArtistView';
 import AlbumView from './components/AlbumView';
 import PlaylistView from './components/PlaylistView';
@@ -23,6 +24,7 @@ function App() {
   const [previousVolume, setPreviousVolume] = useState(0.7);
   const [searchQuery, setSearchQuery] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -330,10 +332,16 @@ function App() {
             />
           </div>
         </div>
-        <button onClick={() => setShowUploadModal(true)} className="px-4 py-2 border border-white/20 hover:bg-white/5 text-sm flex items-center gap-2">
-          <Upload className="w-4 h-4" />
-          UPLOAD
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setShowDownloadModal(true)} className="px-4 py-2 border border-white/20 hover:bg-white/5 text-sm flex items-center gap-2">
+            <Link className="w-4 h-4" />
+            LINK
+          </button>
+          <button onClick={() => setShowUploadModal(true)} className="px-4 py-2 border border-white/20 hover:bg-white/5 text-sm flex items-center gap-2">
+            <Upload className="w-4 h-4" />
+            UPLOAD
+          </button>
+        </div>
       </header>
 
       <div className="flex">
@@ -447,6 +455,12 @@ function App() {
         onSeek={(e) => { const t = (e.target.value / 100) * duration; if (audioRef.current) { audioRef.current.currentTime = t; }}}
         onVolumeChange={(e) => { const v = e.target.value / 100; setVolume(v); setIsMuted(v === 0); if (v > 0) setPreviousVolume(v); if (audioRef.current) audioRef.current.volume = v; }}
         onMuteToggle={toggleMute}
+      />
+
+      <DownloadModal
+        show={showDownloadModal}
+        onClose={() => setShowDownloadModal(false)}
+        onComplete={() => { setShowDownloadModal(false); loadData(); }}
       />
 
       <UploadModal
